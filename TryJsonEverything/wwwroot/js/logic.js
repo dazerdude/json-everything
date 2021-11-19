@@ -28,7 +28,15 @@ if (value) {
 	logicEditor.setValue(JSON.stringify(logicSample, null, '\t'))
 }
 logicEditor.clearSelection();
-logicEditor.getSession().on('change', () => localStorage.setItem('logic.logic', logicEditor.getValue()));
+logicEditor.getSession().on('change',
+	() => {
+		var text = logicEditor.getValue();
+		if (text) {
+			localStorage.setItem('logic.logic', text);
+		} else {
+			localStorage.removeItem('logic.logic');
+		}
+	});
 
 const dataEditor = ace.edit(dataEditorName);
 value = localStorage.getItem('logic.data');
@@ -38,7 +46,15 @@ if (value) {
 	dataEditor.setValue(JSON.stringify(dataSample, null, '\t'))
 }
 dataEditor.clearSelection();
-dataEditor.getSession().on('change', () => localStorage.setItem('logic.data', dataEditor.getValue()));
+dataEditor.getSession().on('change',
+	() => {
+		var text = dataEditor.getValue();
+		if (text) {
+			localStorage.setItem('logic.data', text);
+		} else {
+			localStorage.removeItem('logic.data');
+		}
+	});
 
 const outputEditor = ace.edit(outputEditorName);
 outputEditor.setReadOnly(true);
