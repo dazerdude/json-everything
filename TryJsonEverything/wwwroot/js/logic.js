@@ -25,7 +25,7 @@ var value = localStorage.getItem('logic.logic');
 if (value) {
 	logicEditor.setValue(value);
 } else {
-	logicEditor.setValue(JSON.stringify(logicSample, null, '\t'))
+	logicEditor.setValue(JSON.stringify(logicSample, null, '\t'));
 }
 logicEditor.clearSelection();
 logicEditor.getSession().on('change',
@@ -43,7 +43,7 @@ value = localStorage.getItem('logic.data');
 if (value) {
 	dataEditor.setValue(value);
 } else {
-	dataEditor.setValue(JSON.stringify(dataSample, null, '\t'))
+	dataEditor.setValue(JSON.stringify(dataSample, null, '\t'));
 }
 dataEditor.clearSelection();
 dataEditor.getSession().on('change',
