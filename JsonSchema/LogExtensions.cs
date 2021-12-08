@@ -26,7 +26,7 @@ namespace Json.Schema
 		public static void EnterKeyword(this ValidationContext context, string keyword)
 		{
 			context.Options.LogIndentLevel++;
-			context.Log(() => $"Processing {keyword}...");
+			//context.Log(() => $"Processing {keyword}...");
 		}
 
 		/// <summary>
@@ -36,7 +36,7 @@ namespace Json.Schema
 		/// <param name="keyword">The keyword name</param>
 		public static void ExitKeyword(this ValidationContext context, string keyword)
 		{
-			context.Log(() => $"{keyword} complete: {(context.IsValid ? "valid" : "invalid")}");
+			//context.Log(() => $"{keyword} complete: {(context.IsValid ? "valid" : "invalid")}");
 			context.Options.LogIndentLevel--;
 		}
 

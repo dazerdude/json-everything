@@ -57,46 +57,45 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Array)
+			if (target.ValueKind != JsonValueKind.Array)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
 			bool overwriteAnnotation = !(context.TryGetAnnotation(Name) is bool);
-			var overallResult = true;
-			var maxEvaluations = Math.Min(ArraySchemas.Count, context.LocalInstance.GetArrayLength());
+			result = ValidationResult.Success;
+			var maxEvaluations = Math.Min(ArraySchemas.Count, target.GetArrayLength());
 			for (int i = 0; i < maxEvaluations; i++)
 			{
 				var schema = ArraySchemas[i];
-				var item = context.LocalInstance[i];
-				var subContext = ValidationContext.From(context,
-					context.InstanceLocation.Combine(PointerSegment.Create($"{i}")),
-					item,
-					context.SchemaLocation.Combine(PointerSegment.Create($"{i}")));
-				schema.ValidateSubschema(subContext);
-				overallResult &= subContext.IsValid;
-				if (!overallResult && context.ApplyOptimizations) break;
-				context.NestedContexts.Add(subContext);
+				var item = target[i];
+				//var subContext = ValidationContext.From(context,
+				//	context.InstanceLocation.Combine(PointerSegment.Create($"{i}")),
+				//	item,
+				//	context.SchemaLocation.Combine(PointerSegment.Create($"{i}")));
+				schema.ValidateSubschema(context, in item, out var subResult);
+				result.MergeAnd(in subResult);
+				if (!result.IsValid && context.ApplyOptimizations) break;
+				//context.NestedContexts.Add(subContext);
 			}
 
 			if (overwriteAnnotation)
 			{
-				if (overallResult)
+				if (result.IsValid)
 				{
-					if (maxEvaluations == context.LocalInstance.GetArrayLength())
+					if (maxEvaluations == target.GetArrayLength())
 						context.SetAnnotation(Name, true);
 					else
 						context.SetAnnotation(Name, maxEvaluations);
 				}
 			}
 
-			context.IsValid = overallResult;
-			context.ExitKeyword(Name, context.IsValid);
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		private static void ConsolidateAnnotations(IEnumerable<ValidationContext> sourceContexts, ValidationContext destContext)

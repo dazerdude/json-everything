@@ -11,7 +11,7 @@ namespace Json.Schema
 	/// Handles `oneOf`.
 	/// </summary>
 	[Applicator]
-	[SchemaPriority(20)]
+	[SchemaPriority(80)]
 	[SchemaKeyword(Name)]
 	[SchemaDraft(Draft.Draft6)]
 	[SchemaDraft(Draft.Draft7)]
@@ -29,14 +29,14 @@ namespace Json.Schema
 		/// </summary>
 		public IReadOnlyList<JsonSchema> Schemas { get; }
 
+		//public int Complexity { get; }
+
 		/// <summary>
 		/// Creates a new <see cref="OneOfKeyword"/>.
 		/// </summary>
 		/// <param name="values">The keywords schema collection.</param>
-		public OneOfKeyword(params JsonSchema[] values)
-		{
-			Schemas = values.ToList() ?? throw new ArgumentNullException(nameof(values));
-		}
+		public OneOfKeyword(params JsonSchema[] values) 
+			: this((IEnumerable<JsonSchema>)values ?? throw new ArgumentNullException(nameof(values))) { }
 
 		/// <summary>
 		/// Creates a new <see cref="OneOfKeyword"/>.
@@ -44,34 +44,33 @@ namespace Json.Schema
 		/// <param name="values">The keywords schema collection.</param>
 		public OneOfKeyword(IEnumerable<JsonSchema> values)
 		{
-			Schemas = values.ToList();
+			Schemas = values.ToList();//.OrderBy(s => s.Complexity).ToList();
+			//Complexity = Schemas.Sum(p => p.Complexity);
 		}
 
 		/// <summary>
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
+			result = ValidationResult.Success;
 			var validCount = 0;
 			for (var i = 0; i < Schemas.Count; i++)
 			{
 				context.Log(() => $"Processing {Name}[{i}]...");
 				var schema = Schemas[i];
-				var subContext = ValidationContext.From(context, subschemaLocation: context.SchemaLocation.Combine(PointerSegment.Create($"{i}")));
-				schema.ValidateSubschema(subContext);
-				validCount += subContext.IsValid ? 1 : 0;
-				context.Log(() => $"{Name}[{i}] {subContext.IsValid.GetValidityString()}.");
+				//var subContext = ValidationContext.From(context, subschemaLocation: context.SchemaLocation.Combine(PointerSegment.Create($"{i}")));
+				schema.ValidateSubschema(context, in target, out var subResult);
+				result.MergeAnd(in subResult);
+				validCount += subResult.IsValid ? 1 : 0;
 				if (validCount > 1 && context.ApplyOptimizations) break;
-				context.NestedContexts.Add(subContext);
 			}
 
 			context.ConsolidateAnnotations();
-			context.IsValid = validCount == 1;
-			if (!context.IsValid)
-				context.Message = $"Expected 1 matching subschema but found {validCount}";
-			context.ExitKeyword(Name, context.IsValid);
+			result.Recheck(validCount == 1, $"Expected 1 matching subschema but found {validCount}");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		IRefResolvable? IRefResolvable.ResolvePointerSegment(string? value)

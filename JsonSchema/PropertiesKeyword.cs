@@ -22,6 +22,7 @@ namespace Json.Schema
 	public class PropertiesKeyword : IJsonSchemaKeyword, IRefResolvable, IKeyedSchemaCollector, IEquatable<PropertiesKeyword>
 	{
 		internal const string Name = "properties";
+		//public int Complexity { get; }
 
 		/// <summary>
 		/// The property schemas.
@@ -42,59 +43,60 @@ namespace Json.Schema
 		public PropertiesKeyword(IReadOnlyDictionary<string, JsonSchema> values)
 		{
 			Properties = values ?? throw new ArgumentNullException(nameof(values));
+			//Complexity = Properties.Sum(p => p.Value.Complexity);
 		}
 
 		/// <summary>
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Object)
+			if (target.ValueKind != JsonValueKind.Object)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
 			context.Options.LogIndentLevel++;
-			var overallResult = true;
+			result = ValidationResult.Success;
 			var evaluatedProperties = new List<string>();
 			foreach (var property in Properties)
 			{
 				context.Log(() => $"Validating property '{property.Key}'.");
 				var schema = property.Value;
 				var name = property.Key;
-				if (!context.LocalInstance.TryGetProperty(name, out var item))
+				if (!target.TryGetProperty(name, out var item))
 				{
 					context.Log(() => $"Property '{property.Key}' does not exist. Skipping.");
 					continue;
 				}
 				
-				var subContext = ValidationContext.From(context,
-					context.InstanceLocation.Combine(PointerSegment.Create($"{name}")),
-					item,
-					context.SchemaLocation.Combine(PointerSegment.Create($"{name}")));
-				schema.ValidateSubschema(subContext);
-				overallResult &= subContext.IsValid;
-				context.Log(() => $"Property '{property.Key}' {subContext.IsValid.GetValidityString()}.");
-				if (!overallResult && context.ApplyOptimizations) break;
-				context.NestedContexts.Add(subContext);
-				if (subContext.IsValid)
+				//var subContext = ValidationContext.From(context,
+				//	context.InstanceLocation.Combine(PointerSegment.Create($"{name}")),
+				//	item,
+				//	context.SchemaLocation.Combine(PointerSegment.Create($"{name}")));
+				schema.ValidateSubschema(context, in item, out var subResult);
+				subResult.AnnotateError(name);
+				result.MergeAnd(in subResult);
+				context.Log(() => $"Property '{property.Key}' {subResult.IsValid.GetValidityString()}.");
+				if (!result.IsValid && context.ApplyOptimizations) break;
+				//context.NestedContexts.Add(subContext);
+				if (subResult.IsValid)
 					evaluatedProperties.Add(name);
 			}
 			context.Options.LogIndentLevel--;
 
-			if (overallResult)
+			if (result.IsValid)
 			{
 				if (context.TryGetAnnotation(Name) is List<string> annotation)
 					annotation.AddRange(evaluatedProperties);
 				else
 					context.SetAnnotation(Name, evaluatedProperties);
 			}
-			context.IsValid = overallResult;
-			context.ExitKeyword(Name, context.IsValid);
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		private static void ConsolidateAnnotations(IEnumerable<ValidationContext> sourceContexts, ValidationContext destContext)

@@ -1,4 +1,6 @@
-﻿namespace Json.Schema
+﻿using System.Text.Json;
+
+namespace Json.Schema
 {
 	/// <summary>
 	/// Defines basic functionality for schema keywords.
@@ -9,6 +11,8 @@
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		void Validate(ValidationContext context);
+		void Validate(ValidationContext context, in JsonElement target, out ValidationResult result);
+
+		//int Complexity { get => 1; }
 	}
 }

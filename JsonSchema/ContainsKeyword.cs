@@ -45,39 +45,38 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Array)
+			if (target.ValueKind != JsonValueKind.Array)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
-			var count = context.LocalInstance.GetArrayLength();
+			var count = target.GetArrayLength();
 			var validIndices = new List<int>();
 			for (int i = 0; i < count; i++)
 			{
-				var subContext = ValidationContext.From(context,
-					context.InstanceLocation.Combine(PointerSegment.Create($"{i}")),
-					context.LocalInstance[i]);
-				Schema.ValidateSubschema(subContext);
-				context.NestedContexts.Add(subContext);
-				if (subContext.IsValid)
+				//var subContext = ValidationContext.From(context,
+				//	context.InstanceLocation.Combine(PointerSegment.Create($"{i}")),
+				//	target[i]);
+				Schema.ValidateSubschema(context, target[i], out var subResult);
+				//context.NestedContexts.Add(subContext);
+				if (subResult.IsValid)
 					validIndices.Add(i);
 			}
 
 			var minContainsKeyword = context.LocalSchema.Keywords!.OfType<MinContainsKeyword>().FirstOrDefault();
 			if (minContainsKeyword != null && minContainsKeyword.Value == 0)
-				context.IsValid = true;
+				result = ValidationResult.Success;
 			else
-				context.IsValid = validIndices.Any();
-			if (context.IsValid)
+				result = ValidationResult.Check(validIndices.Any(), "Expected array to contain at least one item that matched the schema, but it did not");
+
+			if (result.IsValid)
 				context.SetAnnotation(Name, validIndices);
-			else
-				context.Message = "Expected array to contain at least one item that matched the schema, but it did not";
-			context.ExitKeyword(Name, context.IsValid);
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		private static void ConsolidateAnnotations(IEnumerable<ValidationContext> sourceContexts, ValidationContext destContext)

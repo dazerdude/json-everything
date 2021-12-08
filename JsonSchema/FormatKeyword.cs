@@ -44,41 +44,33 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
 			context.SetAnnotation(Name, Value.Key);
 
-			var requireValidation = context.Options.RequireFormatValidation;
-			if (!requireValidation)
-			{
-				var vocabRequirements = context.MetaSchemaVocabs;
-				if (vocabRequirements != null)
-				{
-					foreach (var formatAssertionId in _formatAssertionIds)
-					{
-						if (vocabRequirements.ContainsKey(formatAssertionId))
-						{
-							// See https://github.com/json-schema-org/json-schema-spec/pull/1027#discussion_r530068335
-							// for why we don't take the vocab value.
-							// tl;dr - This implementation understands the assertion vocab, so we apply it,
-							// even when the meta-schema says we're not required to.
-							requireValidation = true;
-							break;
-						}
-					}
-				}
-			}
+            var requireValidation = context.Options.RequireFormatValidation;
+            //if (!requireValidation)
+            //{
+            //	var vocabRequirements = context.MetaSchemaVocabs;
+            //	if (vocabRequirements != null)
+            //	{
+            //		foreach (var formatAssertionId in _formatAssertionIds)
+            //		{
+            //			if (vocabRequirements.TryGetValue(formatAssertionId, out var formatAssertionRequirement))
+            //			{
+            //				requireValidation = formatAssertionRequirement;
+            //				break;
+            //			}
+            //		}
+            //	}
+            //}
 
-			string? errorMessage = null;
-			context.IsValid = !requireValidation || Value.Validate(context.LocalInstance, out errorMessage);
-			if (!context.IsValid)
-				context.Message = Value is UnknownFormat
-					? errorMessage
-					: errorMessage == null
-						? $"Value does not match format '{Value.Key}'"
-						: $"Value does not match format '{Value.Key}': {errorMessage}";
-			context.ExitKeyword(Name, context.IsValid);
+            string? errorMessage = null;
+			result = ValidationResult.Check(!requireValidation || Value.Validate(target, out errorMessage),
+				errorMessage == null ? $"Value does not match format '{Value.Key}'" :
+					$"Value does not match format '{Value.Key}': {errorMessage}");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

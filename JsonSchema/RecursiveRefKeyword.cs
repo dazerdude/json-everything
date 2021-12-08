@@ -34,7 +34,7 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
 			var parts = Reference.OriginalString.Split(new[] {'#'}, StringSplitOptions.None);
@@ -67,15 +67,13 @@ namespace Json.Schema
 
 			var refFragment = string.IsNullOrEmpty(fragment) ? $"__{nameof(RecursiveRefKeyword)}__" : fragment;
 			var absoluteReference = SchemaRegistry.GetFullReference(newUri, refFragment);
-			if (context.NavigatedReferences.Contains(absoluteReference))
+			using var _ = context.NavigateToReference(in target, absoluteReference, out var foundRef);
+			if (foundRef)
 			{
-				context.IsValid = false;
-				context.Message = "Encountered recursive reference";
-				context.ExitKeyword(Name, context.IsValid);
+				result = ValidationResult.Failure("Encountered recursive reference");
+				context.ExitKeyword(Name, result.IsValid);
 				return;
 			}
-
-			context.NavigatedReferences.Add(absoluteReference);
 
 			JsonSchema? schema;
 			if (!string.IsNullOrEmpty(fragment) && AnchorKeyword.AnchorPattern.IsMatch(fragment!))
@@ -84,9 +82,8 @@ namespace Json.Schema
 			{
 				if (baseSchema == null)
 				{
-					context.IsValid = false;
-					context.Message = $"Could not resolve base URI `{baseUri}`";
-					context.ExitKeyword(Name, context.IsValid);
+					result = ValidationResult.Failure($"Could not resolve base URI `{baseUri}`");
+					context.ExitKeyword(Name, result.IsValid);
 					return;
 				}
 
@@ -95,9 +92,8 @@ namespace Json.Schema
 					fragment = $"#{fragment}";
 					if (!JsonPointer.TryParse(fragment, out var pointer))
 					{
-						context.IsValid = false;
-						context.Message = $"Could not parse pointer `{fragment}`";
-						context.ExitKeyword(Name, context.IsValid);
+						result = ValidationResult.Failure($"Could not parse pointer `{fragment}`");
+						context.ExitKeyword(Name, result.IsValid);
 						return;
 					}
 
@@ -109,20 +105,19 @@ namespace Json.Schema
 
 			if (schema == null)
 			{
-				context.IsValid = false;
-				context.Message = $"Could not resolve RecursiveReference `{Reference}`";
-				context.ExitKeyword(Name, context.IsValid);
+				result = ValidationResult.Failure($"Could not resolve RecursiveReference `{Reference}`");
+				context.ExitKeyword(Name, result.IsValid);
 				return;
 			}
 
-			var subContext = ValidationContext.From(context, newUri: newUri);
-			if (!ReferenceEquals(baseSchema, context.SchemaRoot))
-				subContext.SchemaRoot = baseSchema!;
-			schema.ValidateSubschema(subContext);
-			context.NestedContexts.Add(subContext);
+			//var subContext = ValidationContext.From(context, newUri: newUri);
+			//if (!ReferenceEquals(baseSchema, context.SchemaRoot))
+			//	subContext.SchemaRoot = baseSchema!;
+			schema.ValidateSubschema(context, in target, out result);
+			//context.NestedContexts.Add(subContext);
 			context.ConsolidateAnnotations();
-			context.IsValid = subContext.IsValid;
-			context.ExitKeyword(Name, context.IsValid);
+			//result.IsValid = subResult.IsValid;
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

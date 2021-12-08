@@ -38,31 +38,31 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
 			var annotation = context.TryGetAnnotation(IfKeyword.Name);
 			if (annotation == null)
 			{
 				context.NotApplicable(() => $"No annotation found for {IfKeyword.Name}.");
-				context.IsValid = true;
+				result = ValidationResult.Success;
 				return;
 			}
 
 			if (!(bool) annotation)
 			{
 				context.NotApplicable(() => $"Annotation for {IfKeyword.Name} is {annotation}.");
-				context.IsValid = true;
+				result = ValidationResult.Success;
 				return;
 			}
 
-			var subContext = ValidationContext.From(context);
-			Schema.ValidateSubschema(subContext);
-			context.NestedContexts.Add(subContext);
+			//var subContext = ValidationContext.From(context);
+			Schema.ValidateSubschema(context, in target, out result);
+			//context.NestedContexts.Add(subContext);
 
 			context.ConsolidateAnnotations();
-			context.IsValid = subContext.IsValid;
-			context.ExitKeyword(Name, context.IsValid);
+			//result.IsValid = subResult.IsValid;
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		IRefResolvable? IRefResolvable.ResolvePointerSegment(string? value)

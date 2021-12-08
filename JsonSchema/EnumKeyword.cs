@@ -22,10 +22,12 @@ namespace Json.Schema
 	{
 		internal const string Name = "enum";
 
+		private readonly HashSet<JsonElement> _Values;
+
 		/// <summary>
 		/// The collection of enum values (they don't need to be strings).
 		/// </summary>
-		public IReadOnlyList<JsonElement> Values { get; }
+		public IReadOnlyCollection<JsonElement> Values => _Values;
 
 		/// <summary>
 		/// Creates a new <see cref="EnumKeyword"/>.
@@ -33,7 +35,8 @@ namespace Json.Schema
 		/// <param name="values">The collection of enum values.</param>
 		public EnumKeyword(params JsonElement[] values)
 		{
-			Values = values?.Select(e => e.Clone()).ToList() ?? throw new ArgumentNullException(nameof(values));
+			if (values == null) throw new ArgumentNullException(nameof(values));
+			_Values = new HashSet<JsonElement>(values, JsonElementEqualityComparer.Instance);
 		}
 
 		/// <summary>
@@ -42,20 +45,21 @@ namespace Json.Schema
 		/// <param name="values">The collection of enum values.</param>
 		public EnumKeyword(IEnumerable<JsonElement> values)
 		{
-			Values = values?.Select(e => e.Clone()).ToList() ?? throw new ArgumentNullException(nameof(values));
+			if (values == null) throw new ArgumentNullException(nameof(values));
+			_Values = new HashSet<JsonElement>(values, JsonElementEqualityComparer.Instance);
 		}
 
 		/// <summary>
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			context.IsValid = Values.Contains(context.LocalInstance, JsonElementEqualityComparer.Instance);
-			if (!context.IsValid)
-				context.Message = "Expected value to match one of the values specified by the enum";
-			context.ExitKeyword(Name, context.IsValid);
+			//result.IsValid = Values.Contains(target, JsonElementEqualityComparer.Instance);
+			result = ValidationResult.Check(Values.Contains(target),
+				$"Expected {target} to match one of the values specified by the enum");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>
@@ -65,7 +69,8 @@ namespace Json.Schema
 		{
 			if (ReferenceEquals(null, other)) return false;
 			if (ReferenceEquals(this, other)) return true;
-			return Values.ContentsEqual(other.Values, JsonElementEqualityComparer.Instance);
+			//return Values.ContentsEqual(other.Values, JsonElementEqualityComparer.Instance);
+			return _Values.SetEquals(other.Values);
 		}
 
 		/// <summary>Determines whether the specified object is equal to the current object.</summary>

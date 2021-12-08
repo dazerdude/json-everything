@@ -48,35 +48,34 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Object)
+			if (target.ValueKind != JsonValueKind.Object)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
 			context.Options.LogIndentLevel++;
-			var overallResult = true;
-			foreach (var name in context.LocalInstance.EnumerateObject().Select(p => p.Name))
+			result = ValidationResult.Success;
+			foreach (var name in target.EnumerateObject().Select(p => p.Name))
 			{
 				context.Log(() => $"Validating property name '{name}'.");
 				var instance = name.AsJsonElement();
-				var subContext = ValidationContext.From(context,
-					context.InstanceLocation.Combine(PointerSegment.Create($"{name}")),
-					instance);
-				Schema.ValidateSubschema(subContext);
-				overallResult &= subContext.IsValid;
-				context.Log(() => $"Property name '{name}' {subContext.IsValid.GetValidityString()}.");
-				if (!overallResult && context.ApplyOptimizations) break;
-				context.NestedContexts.Add(subContext);
+				//var subContext = ValidationContext.From(context,
+				//	context.InstanceLocation.Combine(PointerSegment.Create($"{name}")),
+				//	instance);
+				Schema.ValidateSubschema(context, in instance, out var subResult);
+				result.MergeAnd(in subResult);
+				context.Log(() => $"Property name '{name}' {subResult.IsValid.GetValidityString()}.");
+				if (!result.IsValid && context.ApplyOptimizations) break;
+				//context.NestedContexts.Add(subContext);
 			}
 			context.Options.LogIndentLevel--;
 
-			context.IsValid = overallResult;
-			context.ExitKeyword(Name, context.IsValid);
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		private static void ConsolidateAnnotations(IEnumerable<ValidationContext> sourceContexts, ValidationContext destContext)

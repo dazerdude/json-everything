@@ -40,19 +40,19 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			var subContext = ValidationContext.From(context,
-				subschemaLocation: context.SchemaLocation.Combine(PointerSegment.Create(Name)));
-			Schema.ValidateSubschema(subContext);
-			context.NestedContexts.Add(subContext);
-			context.IsValid = !subContext.IsValid;
+			//var subContext = ValidationContext.From(context,
+			//	subschemaLocation: context.SchemaLocation.Combine(PointerSegment.Create(Name)));
+			Schema.ValidateSubschema(context, in target, out result);
+			//context.NestedContexts.Add(subContext);
+			//result.IsValid = !subResult.IsValid;
 			context.ConsolidateAnnotations();
 			context.Options.LogIndentLevel++;
-			context.Log(() => $"Subschema {subContext.IsValid.GetValidityString()}.");
+			//context.Log(() => $"Subschema {result.IsValid.GetValidityString()}.");
 			context.Options.LogIndentLevel--;
-			context.ExitKeyword(Name, context.IsValid);
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		IRefResolvable? IRefResolvable.ResolvePointerSegment(string? value)

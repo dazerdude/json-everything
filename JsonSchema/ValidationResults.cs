@@ -53,6 +53,8 @@ namespace Json.Schema
 
 		internal ValidationResults(ValidationContext context)
 		{
+			throw new NotImplementedException("Rewrite");
+			/*
 			IsValid = context.IsValid;
 			_annotations = context.IsValid
 				? context.Annotations.ToList()
@@ -65,6 +67,7 @@ namespace Json.Schema
 				? context.NestedContexts.Select(c => new ValidationResults(c)).ToList()
 				: new List<ValidationResults>();
 			_reference = context.Reference;
+			*/
 		}
 
 		/// <summary>

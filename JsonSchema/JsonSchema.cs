@@ -42,6 +42,7 @@ namespace Json.Schema
 
 		internal bool? BoolValue { get; }
 		internal Uri? BaseUri { get; private set; }
+		//internal int Complexity { get; }
 
 		private JsonSchema(bool value)
 		{
@@ -49,7 +50,8 @@ namespace Json.Schema
 		}
 		internal JsonSchema(IEnumerable<IJsonSchemaKeyword> keywords, IReadOnlyDictionary<string, JsonElement>? otherData)
 		{
-			Keywords = keywords.ToArray();
+			Keywords = keywords.ToList();//.OrderBy(k => k.Complexity).ToArray();
+			//Complexity = Keywords.Count > 0 ? Keywords.Max(k => k.Complexity) : 0;
 			OtherData = otherData;
 		}
 
@@ -89,22 +91,24 @@ namespace Json.Schema
 			return JsonSerializer.DeserializeAsync<JsonSchema>(source);
 		}
 
+		public ValidationResult Validate(JsonDocument doc, ValidationOptions? options = null) => ValidateInternal(doc.RootElement, options);
+		public ValidationResult Validate(JsonElement root, ValidationOptions? options = null) => ValidateInternal(root.Clone(), options);
+
 		/// <summary>
 		/// Validates an instance against this schema.
 		/// </summary>
 		/// <param name="root">The root instance.</param>
 		/// <param name="options">The options to use for this validation.</param>
 		/// <returns>A <see cref="ValidationResults"/> that provides the outcome of the validation.</returns>
-		public ValidationResults Validate(JsonElement root, ValidationOptions? options = null)
+		private ValidationResult ValidateInternal(JsonElement root, ValidationOptions? options = null)
 		{
 			options = ValidationOptions.From(options ?? ValidationOptions.Default);
 
 			var context = new ValidationContext(options)
 				{
-					LocalInstance = root,
-					InstanceLocation = JsonPointer.UrlEmpty,
-					InstanceRoot = root,
-					SchemaLocation = JsonPointer.UrlEmpty,
+					//LocalInstance = root,
+					//InstanceLocation = JsonPointer.UrlEmpty,
+					//SchemaLocation = JsonPointer.UrlEmpty,
 					SchemaRoot = this
 				};
 
@@ -120,29 +124,30 @@ namespace Json.Schema
 			context.Options.SchemaRegistry.RegisterSchema(context.CurrentUri, this);
 
 			options.Log.Write(() => "Beginning validation.");
-			ValidateSubschema(context);
+			ValidateSubschema(context, in root, out var result);
+			return result;
+			
+			//options.Log.Write(() => "Transforming output.");
+			//var results = new ValidationResults(context);
+			//switch (options.OutputFormat)
+			//{
+			//	case OutputFormat.Flag:
+			//		results.ToFlag();
+			//		break;
+			//	case OutputFormat.Basic:
+			//		results.ToBasic();
+			//		break;
+			//	case OutputFormat.Detailed:
+			//		results.ToDetailed();
+			//		break;
+			//	case OutputFormat.Verbose:
+			//		break;
+			//	default:
+			//		throw new ArgumentOutOfRangeException();
+			//}
 
-			options.Log.Write(() => "Transforming output.");
-			var results = new ValidationResults(context);
-			switch (options.OutputFormat)
-			{
-				case OutputFormat.Flag:
-					results.ToFlag();
-					break;
-				case OutputFormat.Basic:
-					results.ToBasic();
-					break;
-				case OutputFormat.Detailed:
-					results.ToDetailed();
-					break;
-				case OutputFormat.Verbose:
-					break;
-				default:
-					throw new ArgumentOutOfRangeException();
-			}
-
-			options.Log.Write(() => $"Validation complete: {results.IsValid.GetValidityString()}");
-			return results;
+			//options.Log.Write(() => $"Validation complete: {results.IsValid.GetValidityString()}");
+			//return results;
 		}
 
 		/// <summary>
@@ -182,7 +187,7 @@ namespace Json.Schema
 				anchor.RegisterAnchor(registry, currentUri, this);
 			}
 
-			var keywords = Keywords.OfType<IRefResolvable>().OrderBy(k => ((IJsonSchemaKeyword)k).Priority());
+			var keywords = Keywords.OfType<IRefResolvable>();//.OrderBy(k => ((IJsonSchemaKeyword)k).Priority());
 			foreach (var keyword in keywords)
 			{
 				keyword.RegisterSubschemas(registry, currentUri);
@@ -195,52 +200,51 @@ namespace Json.Schema
 		/// Validates as a subschema.  To be called from within keywords.
 		/// </summary>
 		/// <param name="context">The validation context for this validation pass.</param>
-		public void ValidateSubschema(ValidationContext context)
+		public void ValidateSubschema(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
+			result = new ValidationResult();
 			if (BoolValue.HasValue)
 			{
 				context.Log(() => $"Found {(BoolValue.Value ? "true" : "false")} schema: {BoolValue.Value.GetValidityString()}");
-				context.IsValid = BoolValue.Value;
-				context.SchemaLocation = context.SchemaLocation.Combine(PointerSegment.Create($"${BoolValue}".ToLowerInvariant()));
-				if (!context.IsValid)
-					context.Message = "All values fail against the false schema";
+				result = ValidationResult.Check(BoolValue.Value, "All values fail against the false schema");
+				//context.SchemaLocation = context.SchemaLocation.Combine(PointerSegment.Create($"${BoolValue}".ToLowerInvariant()));
 				return;
 			}
 
-			var metaSchemaUri = Keywords!.OfType<SchemaKeyword>().FirstOrDefault()?.Schema;
-			var keywords = context.Options.FilterKeywords(Keywords!, metaSchemaUri, context.Options.SchemaRegistry);
+			//var metaSchemaUri = Keywords!.OfType<SchemaKeyword>().FirstOrDefault()?.Schema;
+			//var keywords = context.Options.FilterKeywords(Keywords!, metaSchemaUri, context.Options.SchemaRegistry);
 
-			ValidationContext? newContext = null;
-			var overallResult = true;
+			//ValidationContext? newContext = null;
+			result = ValidationResult.Success;
 			List<Type>? keywordTypesToProcess = null;
-			foreach (var keyword in keywords.OrderBy(k => k.Priority()))
+			foreach (var keyword in Keywords!)//keywords.OrderBy(k => k.Priority()))
 			{
-				keywordTypesToProcess ??= context.GetKeywordsToProcess()?.ToList();
-				if (!keywordTypesToProcess?.Contains(keyword.GetType()) ?? false) continue;
+				//keywordTypesToProcess ??= context.GetKeywordsToProcess()?.ToList();
+				//if (!keywordTypesToProcess?.Contains(keyword.GetType()) ?? false) continue;
 		
-				var previousContext = newContext;
-				newContext = ValidationContext.From(context,
-					subschemaLocation: context.SchemaLocation.Combine(PointerSegment.Create(keyword.Keyword())));
-				newContext.NavigatedByDirectRef = context.NavigatedByDirectRef;
-				newContext.ParentContext = context;
-				newContext.LocalSchema = this;
-				newContext.ImportAnnotations(previousContext);
-				if (context.HasNestedContexts)
-					newContext.SiblingContexts.AddRange(context.NestedContexts);
-				keyword.Validate(newContext);
-				context.IsNewDynamicScope |= newContext.IsNewDynamicScope;
-				overallResult &= newContext.IsValid;
-				if (!overallResult && context.ApplyOptimizations) break;
-				if (!newContext.Ignore)
-					context.NestedContexts.Add(newContext);
+				//var previousContext = newContext;
+				//newContext = ValidationContext.From(context,
+				//	subschemaLocation: context.SchemaLocation.Combine(PointerSegment.Create(keyword.Keyword())));
+				//newContext.NavigatedByDirectRef = context.NavigatedByDirectRef;
+				//newContext.ParentContext = context;
+				//newContext.LocalSchema = this;
+				//newContext.ImportAnnotations(previousContext);
+				//if (context.HasNestedContexts)
+				//	newContext.SiblingContexts.AddRange(context.NestedContexts);
+				keyword.Validate(context, in target, out var subResult); // newContext);
+				//context.IsNewDynamicScope |= context.IsNewDynamicScope;
+				result.MergeAnd(in subResult);
+				if (!result.IsValid && context.ApplyOptimizations) break;
+				//if (!newContext.Ignore)
+				//	context.NestedContexts.Add(newContext);
 			}
 
-			if (context.IsNewDynamicScope)
-				context.Options.SchemaRegistry.ExitingUriScope();
+			//if (context.IsNewDynamicScope)
+			//	context.Options.SchemaRegistry.ExitingUriScope();
 
-			context.IsValid = overallResult;
-			if (context.IsValid)
-				context.ImportAnnotations(newContext);
+			//result.IsValid = overallResult;
+			//if (context.IsValid)
+			//	context.ImportAnnotations(newContext);
 		}
 
 		internal (JsonSchema?, Uri?) FindSubschema(JsonPointer pointer, Uri? currentUri)

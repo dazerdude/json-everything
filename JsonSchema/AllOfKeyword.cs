@@ -29,14 +29,14 @@ namespace Json.Schema
 		/// </summary>
 		public IReadOnlyList<JsonSchema> Schemas { get; }
 
+		//public int Complexity { get; }
+
 		/// <summary>
 		/// Creates a new <see cref="AllOfKeyword"/>.
 		/// </summary>
 		/// <param name="values">The set of schemas.</param>
 		public AllOfKeyword(params JsonSchema[] values)
-		{
-			Schemas = values.ToList() ?? throw new ArgumentNullException(nameof(values));
-		}
+			: this((IEnumerable<JsonSchema>)values ?? throw new ArgumentNullException(nameof(values))) { }
 
 		/// <summary>
 		/// Creates a new <see cref="AllOfKeyword"/>.
@@ -44,32 +44,31 @@ namespace Json.Schema
 		/// <param name="values">The set of schemas.</param>
 		public AllOfKeyword(IEnumerable<JsonSchema> values)
 		{
-			Schemas = values.ToList() ?? throw new ArgumentNullException(nameof(values));
+			Schemas = values.ToList();//.OrderBy(s => s.Complexity).ToList();
+			//Complexity = Schemas.Sum(p => p.Complexity);
 		}
 
 		/// <summary>
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			var overallResult = true;
+			result = ValidationResult.Success;
 			for (var i = 0; i < Schemas.Count; i++)
 			{
 				context.Log(() => $"Processing {Name}[{i}]...");
 				var schema = Schemas[i];
-				var subContext = ValidationContext.From(context, subschemaLocation: context.SchemaLocation.Combine(PointerSegment.Create($"{i}")));
-				schema.ValidateSubschema(subContext);
-				overallResult &= subContext.IsValid;
-				context.Log(() => $"{Name}[{i}] {subContext.IsValid.GetValidityString()}.");
-				if (!overallResult && context.ApplyOptimizations) break;
-				context.NestedContexts.Add(subContext);
+				result = ValidationResult.Success;
+				schema.ValidateSubschema(context, in target, out var subResult);
+				result.MergeAnd(in subResult);
+				if (!result.IsValid && context.ApplyOptimizations) break;
+				////context.NestedContexts.Add(subContext);
 			}
 
 			context.ConsolidateAnnotations();
-			context.IsValid = overallResult;
-			context.ExitKeyword(Name, context.IsValid);
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		IRefResolvable? IRefResolvable.ResolvePointerSegment(string? value)

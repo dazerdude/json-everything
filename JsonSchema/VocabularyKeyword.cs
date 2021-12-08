@@ -39,10 +39,9 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			var overallResult = true;
 			var violations = new List<Uri>();
 			var vocabularies = Vocabulary.ToDictionary(x => x.Key, x => x.Value);
 			switch (context.Options.ValidatingAs)
@@ -53,6 +52,8 @@ namespace Json.Schema
 					vocabularies[new Uri(Vocabularies.Core201909Id)] = true;
 					break;
 			}
+
+			var overallResult = true;
 			foreach (var kvp in vocabularies)
 			{
 				var isKnown = context.Options.VocabularyRegistry.IsKnown(kvp.Key);
@@ -62,10 +63,8 @@ namespace Json.Schema
 				overallResult &= isValid;
 				if (!overallResult && context.ApplyOptimizations) break;
 			}
-			context.IsValid = overallResult;
-			if (!overallResult)
-				context.Message = $"Validator does not know about these required vocabularies: [{string.Join(", ", violations)}]";
-			context.ExitKeyword(Name, context.IsValid);
+			result = ValidationResult.Check(overallResult, $"Validator does not know about these required vocabularies: [{string.Join(", ", violations)}]");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

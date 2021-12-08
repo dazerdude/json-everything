@@ -42,8 +42,10 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
+			throw new NotImplementedException("removed feature");
+			/*
 			context.EnterKeyword(Name);
 			if (!context.UriChanged || Value)
 				context.ParentContext.ValidateAnchor();
@@ -54,8 +56,9 @@ namespace Json.Schema
 				context.SetAnnotation(Name, Value);
 			}
 
-			context.IsValid = true;
-			context.ExitKeyword(Name, context.IsValid);
+			result = ValidationResult.Success;
+			context.ExitKeyword(Name, result.IsValid);
+			*/
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

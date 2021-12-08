@@ -45,13 +45,13 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Object)
+			if (target.ValueKind != JsonValueKind.Object)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
@@ -62,7 +62,7 @@ namespace Json.Schema
 				context.Log(() => $"Validating property '{property.Key}'.");
 				var requirements = property.Value;
 				var name = property.Key;
-				if (!context.LocalInstance.TryGetProperty(name, out _))
+				if (!target.TryGetProperty(name, out _))
 				{
 					context.Log(() => $"Property '{property.Key}' does not exist. Skipping.");
 					continue;
@@ -72,14 +72,14 @@ namespace Json.Schema
 				if (requirements.Schema != null)
 				{
 					context.Log(() => "Found schema requirement.");
-					var subContext = ValidationContext.From(context,
-						subschemaLocation: context.SchemaLocation.Combine(PointerSegment.Create($"{name}")));
-					requirements.Schema.ValidateSubschema(subContext);
-					overallResult &= subContext.IsValid;
-					context.NestedContexts.Add(subContext);
-					if (subContext.IsValid)
+					//var subContext = ValidationContext.From(context,
+					//	subschemaLocation: context.SchemaLocation.Combine(PointerSegment.Create($"{name}")));
+					requirements.Schema.ValidateSubschema(context, in target, out var subResult);
+					overallResult &= subResult.IsValid;
+					//context.NestedContexts.Add(subContext);
+					if (subResult.IsValid)
 						evaluatedProperties.Add(name);
-					context.Log(() => $"Property '{property.Key}' {subContext.IsValid.GetValidityString()}.");
+					context.Log(() => $"Property '{property.Key}' {subResult.IsValid.GetValidityString()}.");
 				}
 				else
 				{
@@ -87,7 +87,7 @@ namespace Json.Schema
 					var missingDependencies = new List<string>();
 					foreach (var dependency in requirements.Requirements!)
 					{
-						if (context.LocalInstance.TryGetProperty(dependency, out _)) continue;
+						if (target.TryGetProperty(dependency, out _)) continue;
 
 						overallResult = false;
 						missingDependencies.Add(dependency);
@@ -106,10 +106,8 @@ namespace Json.Schema
 				if (!overallResult && context.ApplyOptimizations) break;
 			}
 
-			context.IsValid = overallResult;
-			if (!context.IsValid)
-				context.Message = $"The following properties failed their dependent schemas: {JsonSerializer.Serialize(evaluatedProperties)}";
-			context.ExitKeyword(Name, context.IsValid);
+			result = ValidationResult.Check(overallResult, $"The following properties failed their dependent schemas: {JsonSerializer.Serialize(evaluatedProperties)}");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		private static void ConsolidateAnnotations(IEnumerable<ValidationContext> sourceContexts, ValidationContext destContext)

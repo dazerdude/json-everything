@@ -38,11 +38,11 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			context.IsValid = true;
-			context.ExitKeyword(Name, context.IsValid);
+			result = ValidationResult.Success;
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		void IAnchorProvider.RegisterAnchor(SchemaRegistry registry, Uri currentUri, JsonSchema schema)

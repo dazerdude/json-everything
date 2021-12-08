@@ -40,40 +40,36 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Array)
+			if (target.ValueKind != JsonValueKind.Array)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
 			if (!Value)
 			{
-				context.IsValid = true;
-				context.ExitKeyword(Name, context.IsValid);
+				result = ValidationResult.Success;
+				context.ExitKeyword(Name, result.IsValid);
 				return;
 			}
 
-			var count = context.LocalInstance.GetArrayLength();
+			var count = target.GetArrayLength();
 			var duplicates = new List<(int, int)>();
 			for (int i = 0; i < count - 1; i++)
 			for (int j = i + 1; j < count; j++)
 			{
-				if (context.LocalInstance[i].IsEquivalentTo(context.LocalInstance[j]))
+				if (target[i].IsEquivalentTo(target[j]))
 					duplicates.Add((i, j));
 			}
 
-			context.IsValid = !duplicates.Any();
-			if (!context.IsValid)
-			{
-				context.IsValid = false;
-				var pairs = string.Join(", ", duplicates.Select(d => $"({d.Item1}, {d.Item2})"));
-				context.Message = $"Found duplicates at the following index pairs: {pairs}";
-			}
-			context.ExitKeyword(Name, context.IsValid);
+			var pairs = string.Join(", ", duplicates.Select(d => $"({d.Item1}, {d.Item2})"));
+			result = !duplicates.Any() ? ValidationResult.Success :
+				ValidationResult.Failure($"Found duplicates at the following index pairs: {pairs}");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

@@ -53,28 +53,26 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
 			if (InvalidPattern != null)
 			{
-				context.Message = $"The regular expression `{InvalidPattern}` is either invalid or not supported";
-				context.IsValid = false;
+				result = ValidationResult.Failure($"The regular expression `{InvalidPattern}` is either invalid or not supported");
 				return;
 			}
 
-			if (context.LocalInstance.ValueKind != JsonValueKind.String)
+			if (target.ValueKind != JsonValueKind.String)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
-			var str = context.LocalInstance.GetString();
-			context.IsValid = Value.IsMatch(str);
-			if (!context.IsValid)
-				context.Message = "The string value was not a match for the indicated regular expression";
-			context.ExitKeyword(Name, context.IsValid);
+			var str = target.GetString();
+			result = ValidationResult.Check(Value.IsMatch(str), 
+				$"The string '{str}' was not a match for '{Value}'");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

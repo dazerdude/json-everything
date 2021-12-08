@@ -48,13 +48,13 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Object)
+			if (target.ValueKind != JsonValueKind.Object)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
@@ -64,7 +64,7 @@ namespace Json.Schema
 			{
 				var property = Properties[i];
 				context.Log(() => $"Checking for property '{property}'");
-				if (!context.LocalInstance.TryGetProperty(property, out _))
+				if (!target.TryGetProperty(property, out _))
 					notFound.Add(property);
 				if (notFound.Count != 0 && context.ApplyOptimizations) break;
 			}
@@ -72,10 +72,8 @@ namespace Json.Schema
 				context.Log(() => $"Missing properties: [{string.Join(",", notFound.Select(x => $"'{x}'"))}]");
 			context.Options.LogIndentLevel--;
 
-			context.IsValid = notFound.Count == 0;
-			if (!context.IsValid)
-				context.Message = $"Required properties [{string.Join(", ", notFound)}] were not present";
-			context.ExitKeyword(Name, context.IsValid);
+			result = ValidationResult.Check(notFound.Count == 0, $"Required properties [{string.Join(", ", notFound)}] were not present");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

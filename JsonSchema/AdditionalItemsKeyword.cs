@@ -44,52 +44,51 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Array)
+			if (target.ValueKind != JsonValueKind.Array)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
 			context.Options.LogIndentLevel++;
-			var overallResult = true;
+			result = ValidationResult.Success;
 			var annotation = context.TryGetAnnotation(ItemsKeyword.Name);
 			if (annotation == null)
 			{
 				context.NotApplicable(() => $"No annotations from {ItemsKeyword.Name}.");
-				context.IsValid = true;
+				result = ValidationResult.Success;
 				return;
 			}
 			context.Log(() => $"Annotation from {ItemsKeyword.Name}: {annotation}.");
 			if (annotation is bool)
 			{
-				context.IsValid = true;
-				context.ExitKeyword(Name, context.IsValid);
+				result = ValidationResult.Success;
+				context.ExitKeyword(Name, result.IsValid);
 				return;
 			}
 			var startIndex = (int) annotation;
 
-			for (int i = startIndex; i < context.LocalInstance.GetArrayLength(); i++)
+			for (int i = startIndex; i < target.GetArrayLength(); i++)
 			{
 				context.Log(() => $"Validating item at index {i}.");
-				var item = context.LocalInstance[i];
-				var subContext = ValidationContext.From(context,
-					context.InstanceLocation.Combine(PointerSegment.Create($"{i}")),
-					item);
-				Schema.ValidateSubschema(subContext);
-				overallResult &= subContext.IsValid;
-				context.Log(() => $"Item at index {i} {subContext.IsValid.GetValidityString()}.");
-				if (!overallResult && context.ApplyOptimizations) break;
+				var item = target[i];
+				//var subContext = ValidationContext.From(context,
+				//	context.InstanceLocation.Combine(PointerSegment.Create($"{i}")),
+				//	item);
+				Schema.ValidateSubschema(context, in item, out var subResult);
+				result.MergeAnd(in subResult);
+				context.Log(() => $"Item at index {i} {subResult.IsValid.GetValidityString()}.");
+				if (!result.IsValid && context.ApplyOptimizations) break;
 			}
 			context.Options.LogIndentLevel--;
 
-			if (overallResult)
+			if (result.IsValid)
 				context.SetAnnotation(Name, true);
-			context.IsValid = overallResult;
-			context.ExitKeyword(Name, context.IsValid);
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		private static void ConsolidateAnnotations(IEnumerable<ValidationContext> sourceContexts, ValidationContext destContext)

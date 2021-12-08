@@ -39,25 +39,25 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
 			if (context.LocalSchema.Keywords!.OfType<RefKeyword>().Any() &&
 			    context.Options.ValidatingAs == Draft.Draft6 || context.Options.ValidatingAs == Draft.Draft7)
 			{
 				context.NotApplicable(() => "$ref present; ignoring");
-				context.IsValid = true;
+				result = ValidationResult.Success;
 				return;
 			}
-			var newUri = context.NavigatedByDirectRef ? context.CurrentUri : UpdateUri(context.CurrentUri);
-			context.ParentContext.UriChanged |= context.ParentContext.CurrentUri != newUri;
-			if (context.ParentContext.UriChanged) 
-				context.ParentContext.CurrentAnchor = null;
-			context.Options.SchemaRegistry.EnteringUriScope(newUri!);
-			context.IsNewDynamicScope = true;
-			context.ParentContext.CurrentUri = newUri;
-			context.IsValid = true;
-			context.ExitKeyword(Name, context.IsValid);
+			//var newUri = context.NavigatedByDirectRef ? context.CurrentUri : UpdateUri(context.CurrentUri);
+			//context.ParentContext.UriChanged |= context.ParentContext.CurrentUri != newUri;
+			//if (context.ParentContext.UriChanged) 
+			//	context.ParentContext.CurrentAnchor = null;
+			//context.Options.SchemaRegistry.EnteringUriScope(newUri!);
+			//context.IsNewDynamicScope = true;
+			//context.ParentContext.CurrentUri = newUri;
+			result = ValidationResult.Success;
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		internal Uri UpdateUri(Uri? currentUri)

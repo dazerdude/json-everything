@@ -38,21 +38,19 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Object)
+			if (target.ValueKind != JsonValueKind.Object)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
-			var number = context.LocalInstance.EnumerateObject().Count();
-			context.IsValid = Value >= number;
-			if (!context.IsValid)
-				context.Message = $"Value has more than {Value} properties";
-			context.ExitKeyword(Name, context.IsValid);
+			var number = target.EnumerateObject().Count();
+			result = ValidationResult.Check(Value >= number, $"Value has more than {Value} properties");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

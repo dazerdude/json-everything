@@ -38,46 +38,48 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
-			context.EnterKeyword(Name);
-			if (Value == 0)
-			{
-				context.IsValid = true;
-				if (context.HasSiblingContexts)
-				{
-					var containsContext = context.SiblingContexts.FirstOrDefault(c => c.SchemaLocation.Segments.LastOrDefault().Value == ContainsKeyword.Name);
-					if (containsContext != null)
-					{
-						context.Log(() => $"Marking result from {ContainsKeyword.Name} as {true.GetValidityString()}.");
-						containsContext.IsValid = true;
-					}
-				}
-				context.ExitKeyword(Name, context.IsValid);
-				return;
-			}
+			throw new NotImplementedException("Context Feature Removal");
+			//context.EnterKeyword(Name);
+   //         result = new ValidationResult();
+			//if (Value == 0)
+			//{
+			//	result = ValidationResult.Success;
+			//	if (context.HasSiblingContexts)
+			//	{
+			//		var containsContext = context.SiblingContexts.FirstOrDefault(c => c.SchemaLocation.Segments.LastOrDefault().Value == ContainsKeyword.Name);
+			//		if (containsContext != null)
+			//		{
+			//			context.Log(() => $"Marking result from {ContainsKeyword.Name} as {true.GetValidityString()}.");
+			//			containsresult = ValidationResult.Success;
+			//		}
+			//	}
+			//	context.ExitKeyword(Name, result.IsValid);
+			//	return;
+			//}
 
-			if (context.LocalInstance.ValueKind != JsonValueKind.Array)
-			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
-				return;
-			}
+			//if (target.ValueKind != JsonValueKind.Array)
+			//{
+			//	context.WrongValueKind(target.ValueKind);
+			//	result = ValidationResult.Success;
+			//	return;
+			//}
 
-			var annotation = context.TryGetAnnotation(ContainsKeyword.Name);
-			if (!(annotation is List<int> validatedIndices))
-			{
-				context.NotApplicable(() => $"No annotations from {ContainsKeyword.Name}.");
-				context.IsValid = true;
-				return;
-			}
+			//var annotation = context.TryGetAnnotation(ContainsKeyword.Name);
+			//if (!(annotation is List<int> validatedIndices))
+			//{
+			//	context.NotApplicable(() => $"No annotations from {ContainsKeyword.Name}.");
+			//	result = ValidationResult.Success;
+			//	return;
+			//}
 
-			context.Log(() => $"Annotation from {ContainsKeyword.Name}: {annotation}.");
-			var containsCount = validatedIndices.Count;
-			context.IsValid = Value <= containsCount;
-			if (!context.IsValid)
-				context.Message = $"Value has less than {Value} items that matched the schema provided by the {ContainsKeyword.Name} keyword";
-			context.ExitKeyword(Name, context.IsValid);
+			//context.Log(() => $"Annotation from {ContainsKeyword.Name}: {annotation}.");
+			//var containsCount = validatedIndices.Count;
+			//result.IsValid = Value <= containsCount;
+			//if (!result.IsValid)
+			//	result.Message = $"Value has less than {Value} items that matched the schema provided by the {ContainsKeyword.Name} keyword";
+			//context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

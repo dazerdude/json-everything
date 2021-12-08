@@ -38,13 +38,12 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			context.IsValid = Value.IsEquivalentTo(context.LocalInstance);
-			if (!context.IsValid)
-				context.Message = "Expected value to match given value";
-			context.ExitKeyword(Name, context.IsValid);
+			result = ValidationResult.Check(Value.IsEquivalentTo(target),
+				"Expected value to match given value");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

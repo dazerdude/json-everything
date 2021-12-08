@@ -37,21 +37,19 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Number)
+			if (target.ValueKind != JsonValueKind.Number)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
-			var number = context.LocalInstance.GetDecimal();
-			context.IsValid = number % Value == 0;
-			if (!context.IsValid)
-				context.Message = $"{number} a multiple of {Value}";
-			context.ExitKeyword(Name, context.IsValid);
+			var number = target.GetDecimal();
+			result = ValidationResult.Check(number % Value == 0, $"{number} a multiple of {Value}");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		/// <summary>Indicates whether the current object is equal to another object of the same type.</summary>

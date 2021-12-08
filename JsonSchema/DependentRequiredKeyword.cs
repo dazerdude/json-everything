@@ -43,13 +43,13 @@ namespace Json.Schema
 		/// Provides validation for the keyword.
 		/// </summary>
 		/// <param name="context">Contextual details for the validation process.</param>
-		public void Validate(ValidationContext context)
+		public void Validate(ValidationContext context, in JsonElement target, out ValidationResult result)
 		{
 			context.EnterKeyword(Name);
-			if (context.LocalInstance.ValueKind != JsonValueKind.Object)
+			if (target.ValueKind != JsonValueKind.Object)
 			{
-				context.WrongValueKind(context.LocalInstance.ValueKind);
-				context.IsValid = true;
+				context.WrongValueKind(target.ValueKind);
+				result = ValidationResult.Success;
 				return;
 			}
 
@@ -61,7 +61,7 @@ namespace Json.Schema
 				context.Log(() => $"Validating property '{property.Key}'.");
 				var dependencies = property.Value;
 				var name = property.Key;
-				if (!context.LocalInstance.TryGetProperty(name, out _))
+				if (!target.TryGetProperty(name, out _))
 				{
 					context.Log(() => $"Property '{property.Key}' does not exist. Skipping.");
 					continue;
@@ -71,7 +71,7 @@ namespace Json.Schema
 					list = missingDependencies[name] = new List<string>();
 				foreach (var dependency in dependencies)
 				{
-					if (context.LocalInstance.TryGetProperty(dependency, out _)) continue;
+					if (target.TryGetProperty(dependency, out _)) continue;
 
 					overallResult = false;
 					if (context.ApplyOptimizations) break;
@@ -86,13 +86,9 @@ namespace Json.Schema
 				if (!overallResult && context.ApplyOptimizations) break;
 			}
 
-			context.IsValid = overallResult;
-			if (!context.IsValid)
-			{
-				var missing = JsonSerializer.Serialize(missingDependencies);
-				context.Message = $"Some required property dependencies are missing: {missing}";
-			}
-			context.ExitKeyword(Name, context.IsValid);
+			result = ValidationResult.Check(overallResult, 
+				$"Some required property dependencies are missing: {JsonSerializer.Serialize(missingDependencies)}");
+			context.ExitKeyword(Name, result.IsValid);
 		}
 
 		private static void ConsolidateAnnotations(IEnumerable<ValidationContext> sourceContexts, ValidationContext destContext)
